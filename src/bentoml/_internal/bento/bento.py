@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import os
@@ -212,6 +213,7 @@ class Bento(StoreItem):
             )
         else:
             # for >= 1.2
+            svc.inject_config()
             bento_name = (
                 build_config.name
                 if build_config.name is not None
@@ -463,7 +465,9 @@ class Bento(StoreItem):
             raise BentoMLException(f"Failed to save {self!s}: {e}") from None
 
         with bento_store.register(self.tag) as bento_path:
-            out_fs = fs.open_fs(bento_path, create=True, writeable=True)
+            out_fs = fs.open_fs(
+                encode_path_for_uri(bento_path), create=True, writeable=True
+            )
             if self._model_store is not None:
                 # Move models to the global model store, if any
                 for model in self._model_store.list():
@@ -695,7 +699,7 @@ class BentoInfo:
 
 
 bentoml_cattr.register_structure_hook_func(
-    lambda cls: issubclass(cls, BentoInfo),
+    lambda cls: inspect.isclass(cls) and issubclass(cls, BentoInfo),
     make_dict_structure_fn(
         BentoInfo,
         bentoml_cattr,

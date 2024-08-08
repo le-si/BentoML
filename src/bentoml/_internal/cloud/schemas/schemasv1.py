@@ -64,6 +64,7 @@ class ClusterSchema(ResourceSchema):
     description: str
     organization_name: str
     creator: UserSchema
+    is_first: t.Optional[bool] = None
 
 
 @attr.define
@@ -229,7 +230,7 @@ class BentoListSchema(BaseListSchema):
 @attr.define
 class CreateDeploymentTargetSchema:
     __omit_if_default__ = True
-    __forbid_extra_keys__ = True
+    __forbid_extra_keys__ = False
     bento_repository: str
     bento: str
     config: DeploymentTargetConfig
@@ -241,7 +242,7 @@ class CreateDeploymentTargetSchema:
 @attr.define
 class DeploymentSchema(ResourceSchema):
     __omit_if_default__ = True
-    __forbid_extra_keys__ = True
+    __forbid_extra_keys__ = False
     creator: UserSchema
     cluster: ClusterSchema
     status: str
@@ -254,7 +255,7 @@ class DeploymentSchema(ResourceSchema):
 @attr.define
 class DeploymentTargetSchema(ResourceSchema):
     __omit_if_default__ = True
-    __forbid_extra_keys__ = True
+    __forbid_extra_keys__ = False
     creator: UserSchema
     bento: BentoFullSchema
     config: DeploymentTargetConfig
@@ -266,7 +267,7 @@ class DeploymentTargetSchema(ResourceSchema):
 @attr.define
 class DeploymentRevisionSchema(ResourceSchema):
     __omit_if_default__ = True
-    __forbid_extra_keys__ = True
+    __forbid_extra_keys__ = False
     creator: UserSchema
     status: str
     targets: t.List[DeploymentTargetSchema]
@@ -279,10 +280,10 @@ class ResourceInstanceSchema(ResourceSchema):
     config: ResourceInstanceConfigSchema
 
 
-@attr.define
+@attr.define(kw_only=True)
 class ClusterFullSchema(ClusterSchema):
     __omit_if_default__ = True
-    __forbid_extra_keys__ = True
+    __forbid_extra_keys__ = False
     organization: OrganizationSchema
     kube_config: str
     config: ClusterConfigSchema
@@ -293,14 +294,14 @@ class ClusterFullSchema(ClusterSchema):
 @attr.define
 class DeploymentListSchema(BaseListSchema):
     __omit_if_default__ = True
-    __forbid_extra_keys__ = True
+    __forbid_extra_keys__ = False
     items: t.List[DeploymentSchema]
 
 
 @attr.define
 class UpdateDeploymentSchema:
     __omit_if_default__ = True
-    __forbid_extra_keys__ = True
+    __forbid_extra_keys__ = False
     targets: t.List[CreateDeploymentTargetSchema]
     labels: t.Optional[t.List[LabelItemSchema]] = attr.field(default=None)
     description: t.Optional[str] = attr.field(default=None)
@@ -310,7 +311,7 @@ class UpdateDeploymentSchema:
 @attr.define(kw_only=True)
 class CreateDeploymentSchema(UpdateDeploymentSchema):
     __omit_if_default__ = True
-    __forbid_extra_keys__ = True
+    __forbid_extra_keys__ = False
     name: str
     kube_namespace: str
 
@@ -318,5 +319,52 @@ class CreateDeploymentSchema(UpdateDeploymentSchema):
 @attr.define(kw_only=True)
 class DeploymentFullSchema(DeploymentSchema):
     __omit_if_default__ = True
-    __forbid_extra_keys__ = True
+    __forbid_extra_keys__ = False
     urls: list[str]
+
+
+@attr.define
+class SecretItem:
+    key: str
+    sub_path: t.Optional[str] = attr.field(default=None)
+    value: t.Optional[str] = attr.field(default=None)
+
+
+@attr.define
+class SecretContentSchema:
+    type: str
+    items: t.List[SecretItem]
+    path: t.Optional[str] = attr.field(default=None)
+
+
+@attr.define
+class SecretSchema(ResourceSchema):
+    __omit_if_default__ = True
+    __forbid_extra_keys__ = False
+    description: str
+    creator: UserSchema
+    content: SecretContentSchema
+
+
+@attr.define
+class SecretListSchema(BaseListSchema):
+    __omit_if_default__ = True
+    __forbid_extra_keys__ = False
+    items: t.List[SecretSchema]
+
+
+@attr.define
+class CreateSecretSchema:
+    __omit_if_default__ = True
+    __forbid_extra_keys__ = False
+    name: str
+    description: str
+    content: SecretContentSchema
+
+
+@attr.define
+class UpdateSecretSchema:
+    __omit_if_default__ = True
+    __forbid_extra_keys__ = False
+    description: str
+    content: SecretContentSchema

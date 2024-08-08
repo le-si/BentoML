@@ -34,6 +34,7 @@ if TYPE_CHECKING:
 
     from .. import external_typing as ext
     from ..bento import BentoStore
+    from ..cloud.client import RestApiClient
     from ..models import ModelStore
     from ..server.metrics.prometheus import PrometheusClient
     from ..utils.analytics import ServeInfo
@@ -170,6 +171,16 @@ class _BentoMLContainerClass:
 
     @providers.SingletonFactory
     @staticmethod
+    def result_store_file(bentoml_home: str = Provide[bentoml_home]) -> str:
+        path = os.getenv(
+            "BENTOML_RESULT_STORE", os.path.join(bentoml_home, "task_result.db")
+        )
+        return (
+            os.path.realpath(os.path.expanduser(path)) if path != ":memory:" else path
+        )
+
+    @providers.SingletonFactory
+    @staticmethod
     def tmp_bento_store_dir(bentoml_home: str = Provide[bentoml_home]):
         return os.path.join(bentoml_home, "tmp")
 
@@ -193,7 +204,9 @@ class _BentoMLContainerClass:
     def env_store(bentoml_home: str = Provide[bentoml_home]) -> FS:
         import fs
 
-        return fs.open_fs(os.path.join(bentoml_home, "envs"))
+        from ..utils.uri import encode_path_for_uri
+
+        return fs.open_fs(encode_path_for_uri(os.path.join(bentoml_home, "envs")))
 
     @providers.SingletonFactory
     @staticmethod
@@ -316,12 +329,10 @@ class _BentoMLContainerClass:
 
     @providers.SingletonFactory
     @staticmethod
-    def metrics_client(
-        multiproc_dir: str = Provide[prometheus_multiproc_dir],
-    ) -> PrometheusClient:
+    def metrics_client() -> PrometheusClient:
         from ..server.metrics.prometheus import PrometheusClient
 
-        return PrometheusClient(multiproc_dir=multiproc_dir)
+        return PrometheusClient()
 
     tracing = config.tracing
 
@@ -465,16 +476,20 @@ class _BentoMLContainerClass:
         from ..utils.metrics import INF
         from ..utils.metrics import exponential_buckets
 
-        if "buckets" in duration:
+        if None not in (
+            duration.get("min"),
+            duration.get("max"),
+            duration.get("factor"),
+        ):
+            return exponential_buckets(
+                duration["min"], duration["factor"], duration["max"]
+            )
+        elif "buckets" in duration:
             return tuple(duration["buckets"]) + (INF,)
         else:
-            if len(set(duration) - {"min", "max", "factor"}) == 0:
-                return exponential_buckets(
-                    duration["min"], duration["factor"], duration["max"]
-                )
             raise BentoMLConfigException(
-                f"Keys 'min', 'max', and 'factor' are required for 'duration' configuration, '{duration!r}'."
-            ) from None
+                "Either `buckets` or `min`, `max`, and `factor` must be set in `api_server.metrics.duration`"
+            )
 
     @providers.SingletonFactory
     @staticmethod
@@ -491,6 +506,15 @@ class _BentoMLContainerClass:
     @property
     def new_index(self) -> bool:
         return "new_index" in self.enabled_features.get()
+
+    cloud_context = providers.Static[t.Optional[str]](None)
+
+    @providers.Factory
+    @staticmethod
+    def rest_api_client(context: str | None = Provide[cloud_context]) -> RestApiClient:
+        from ..cloud.config import get_rest_api_client
+
+        return get_rest_api_client(context)
 
 
 BentoMLContainer = _BentoMLContainerClass()

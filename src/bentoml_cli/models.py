@@ -4,6 +4,7 @@ import json
 import typing as t
 
 import click
+import rich
 import yaml
 from rich.syntax import Syntax
 from rich.table import Table
@@ -31,8 +32,6 @@ if t.TYPE_CHECKING:
     from bentoml._internal.bento import BentoStore
     from bentoml._internal.cloud import BentoCloudClient
     from bentoml._internal.models import ModelStore
-
-    from .utils import SharedOptions
 
 
 def parse_delete_targets_argument_callback(
@@ -218,7 +217,7 @@ def delete(
             if delete_confirmed:
                 check_model_is_used(model.tag)
                 model_store.delete(model.tag)
-                click.echo(f"{model} deleted.")
+                rich.print(f"[green]{model}[/] deleted.")
 
     for target in delete_targets:
         delete_target(target)
@@ -253,7 +252,7 @@ def export(
     """
     bentomodel = model_store.get(model_tag)
     out_path = bentomodel.export(out_path)
-    click.echo(f"{bentomodel} exported to {out_path}.")
+    rich.print(f"[green]{bentomodel}[/] exported to {out_path}.")
 
 
 @model_command.command(name="import")
@@ -265,7 +264,7 @@ def import_from(model_path: str) -> None:  # type: ignore (not accessed)
     bentoml models import s3://mybucket/models/my_model.bentomodel
     """
     bentomodel = import_model(model_path)
-    click.echo(f"{bentomodel} imported.")
+    rich.print(f"[green]{bentomodel}[/] imported.")
 
 
 @model_command.command()
@@ -300,8 +299,8 @@ def pull(
 
     if model_tag is not None:
         if ctx.get_parameter_source("bentofile") != ParameterSource.DEFAULT:
-            click.echo("-f bentofile is ignored when model_tag is provided")
-        cloud_client.pull_model(model_tag, force=force, context=ctx.obj.cloud_context)
+            rich.print("-f bentofile is ignored when model_tag is provided")
+        cloud_client.pull_model(model_tag, force=force)
         return
 
     try:
@@ -320,7 +319,6 @@ def pull(
         cloud_client.pull_model(
             model_spec.tag,
             force=force,
-            context=t.cast("SharedOptions", ctx.obj).cloud_context,
             query=model_spec.filter,
         )
 
@@ -340,10 +338,8 @@ def pull(
     default=10,
     help="Number of threads to use for upload",
 )
-@click.pass_obj
 @inject
 def push(
-    shared_options: SharedOptions,
     model_tag: str,
     force: bool,
     threads: int,
@@ -358,5 +354,4 @@ def push(
         model_obj,
         force=force,
         threads=threads,
-        context=shared_options.cloud_context,
     )

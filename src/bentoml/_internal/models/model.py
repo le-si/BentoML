@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 import io
 import logging
 import os
@@ -24,6 +25,8 @@ from cattr.gen import override
 from fs.base import FS
 from simple_di import Provide
 from simple_di import inject
+
+from bentoml._internal.utils.uri import encode_path_for_uri
 
 from ...exceptions import BentoMLException
 from ...exceptions import NotFound
@@ -208,7 +211,9 @@ class Model(StoreItem):
             raise BentoMLException(f"Failed to save {self!s}: {e}") from None
 
         with model_store.register(self.tag) as model_path:
-            out_fs = fs.open_fs(model_path, create=True, writeable=True)
+            out_fs = fs.open_fs(
+                encode_path_for_uri(model_path), create=True, writeable=True
+            )
             fs.mirror.mirror(self._fs, out_fs, copy_if_newer=False)
             self._fs.close()
             self.__fs = out_fs
@@ -685,7 +690,7 @@ class ModelInfo:
 
 
 bentoml_cattr.register_structure_hook_func(
-    lambda cls: issubclass(cls, ModelInfo),
+    lambda cls: inspect.isclass(cls) and issubclass(cls, ModelInfo),
     make_dict_structure_fn(
         ModelInfo,
         bentoml_cattr,
@@ -695,7 +700,7 @@ bentoml_cattr.register_structure_hook_func(
     ),
 )
 bentoml_cattr.register_unstructure_hook_func(
-    lambda cls: issubclass(cls, ModelInfo),
+    lambda cls: inspect.isclass(cls) and issubclass(cls, ModelInfo),
     # Ignore tag, tag is saved via the name and version field
     make_dict_unstructure_fn(
         ModelInfo,

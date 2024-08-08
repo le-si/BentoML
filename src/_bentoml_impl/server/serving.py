@@ -102,6 +102,7 @@ def create_dependency_watcher(
     backlog: int,
     scheduler: ResourceAllocator,
     working_dir: str | None = None,
+    env: dict[str, str] | None = None,
 ) -> tuple[Watcher, CircusSocket, str]:
     from bentoml.serve import create_watcher
 
@@ -127,15 +128,21 @@ def create_dependency_watcher(
         args=args,
         numprocesses=num_workers,
         working_dir=working_dir,
+        env=env,
     )
     return watcher, socket, uri
 
 
-def server_on_deployment(svc: AnyService) -> None:
+@inject
+def server_on_deployment(
+    svc: AnyService, result_file: str = Provide[BentoMLContainer.result_store_file]
+) -> None:
     for name in dir(svc.inner):
         member = getattr(svc.inner, name)
         if callable(member) and getattr(member, "__bentoml_deployment_hook__", False):
             member()
+    if os.path.exists(result_file):
+        os.remove(result_file)
 
 
 @inject(squeeze_none=True)
@@ -178,7 +185,7 @@ def serve_http(
     from ..loader import normalize_identifier
     from .allocator import ResourceAllocator
 
-    prometheus_dir = ensure_prometheus_dir()
+    env = {"PROMETHEUS_MULTIPROC_DIR": ensure_prometheus_dir()}
     if isinstance(bento_identifier, Service):
         svc = bento_identifier
         bento_identifier = svc.import_string
@@ -220,6 +227,7 @@ def serve_http(
                         backlog,
                         allocator,
                         str(bento_path.absolute()),
+                        env=env,
                     )
                     watchers.append(new_watcher)
                     sockets.append(new_socket)
@@ -278,8 +286,6 @@ def serve_http(
             str(backlog),
             "--worker-id",
             "$(CIRCUS.WID)",
-            "--prometheus-dir",
-            prometheus_dir,
             *ssl_args,
             *timeouts_args,
             *timeout_args,
@@ -297,6 +303,7 @@ def serve_http(
                 working_dir=str(bento_path.absolute()),
                 numprocesses=num_workers,
                 close_child_stdin=not development_mode,
+                env=env,
             )
         )
 

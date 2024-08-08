@@ -133,6 +133,13 @@ Alternatively, use the ``server_ready_timeout`` parameter to specify the maximum
 
     client.close()
 
+.. _call-a-task-endpoint:
+
+Call a task endpoint
+--------------------
+
+You can create clients to interact with Services defined with :ref:`task <bentoml-tasks>` endpoints by submitting inputs and then asynchronously checking for results at a later time. This is particularly useful for scenarios where the client does not need to actively wait for the task to complete. For more information, see :doc:`/guides/tasks`.
+
 Input and output
 ----------------
 

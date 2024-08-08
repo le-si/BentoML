@@ -5,6 +5,7 @@ import typing as t
 from http import HTTPStatus
 
 import click
+import rich
 import yaml
 from rich.syntax import Syntax
 from rich.table import Table
@@ -19,8 +20,6 @@ from bentoml_cli.utils import BentoMLCommandGroup
 
 if t.TYPE_CHECKING:
     TupleStrAny = tuple[str, ...]
-
-    from .utils import SharedOptions
 else:
     TupleStrAny = tuple
 
@@ -88,6 +87,12 @@ def raise_deployment_config_error(err: BentoMLException, action: str) -> t.NoRet
     multiple=True,
 )
 @click.option(
+    "--secret",
+    type=click.STRING,
+    help="List of secret names pass by --secret name1, --secret name2, ...",
+    multiple=True,
+)
+@click.option(
     "-f",
     "--config-file",
     type=click.File(),
@@ -110,12 +115,10 @@ def raise_deployment_config_error(err: BentoMLException, action: str) -> t.NoRet
 @click.option(
     "--timeout",
     type=click.INT,
-    default=1800,
+    default=3600,
     help="Timeout for deployment to be ready in seconds",
 )
-@click.pass_obj
 def deploy_command(
-    shared_options: SharedOptions,
     bento: str | None,
     name: str | None,
     cluster: str | None,
@@ -125,6 +128,7 @@ def deploy_command(
     instance_type: str | None,
     strategy: str | None,
     env: tuple[str] | None,
+    secret: tuple[str] | None,
     config_file: str | t.TextIO | None,
     config_dict: str | None,
     wait: bool,
@@ -136,7 +140,6 @@ def deploy_command(
     Create a deployment using parameters, or using config yaml file.
     """
     create_deployment(
-        context=shared_options.cloud_context,
         bento=bento,
         name=name,
         cluster=cluster,
@@ -146,6 +149,7 @@ def deploy_command(
         instance_type=instance_type,
         strategy=strategy,
         env=env,
+        secret=secret,
         config_file=config_file,
         config_dict=config_dict,
         wait=wait,
@@ -247,9 +251,7 @@ def deployment_command():
     help="Configuration json string",
     default=None,
 )
-@click.pass_obj
 def update(  # type: ignore
-    shared_options: SharedOptions,
     name: str | None,
     cluster: str | None,
     bento: str | None,
@@ -273,7 +275,6 @@ def update(  # type: ignore
         cfg_dict = json.loads(config_dict)
     config_params = DeploymentConfigParameters(
         name=name,
-        context=shared_options.cloud_context,
         bento=bento,
         cluster=cluster,
         access_authorization=access_authorization,
@@ -294,12 +295,9 @@ def update(  # type: ignore
         config_params.verify()
     except BentoMLException as e:
         raise_deployment_config_error(e, "update")
-    deployment_info = Deployment.update(
-        deployment_config_params=config_params,
-        context=shared_options.cloud_context,
-    )
+    deployment_info = Deployment.update(deployment_config_params=config_params)
 
-    click.echo(f"Deployment '{deployment_info.name}' updated successfully.")
+    rich.print(f"Deployment [green]'{deployment_info.name}'[/] updated successfully.")
 
 
 @deployment_command.command()
@@ -371,9 +369,7 @@ def update(  # type: ignore
     help="Configuration json string",
     default=None,
 )
-@click.pass_obj
 def apply(  # type: ignore
-    shared_options: SharedOptions,
     bento: str | None,
     name: str | None,
     cluster: str | None,
@@ -396,7 +392,6 @@ def apply(  # type: ignore
         cfg_dict = json.loads(config_dict)
     config_params = DeploymentConfigParameters(
         name=name,
-        context=shared_options.cloud_context,
         bento=bento,
         cluster=cluster,
         access_authorization=access_authorization,
@@ -417,12 +412,9 @@ def apply(  # type: ignore
         config_params.verify()
     except BentoMLException as e:
         raise_deployment_config_error(e, "apply")
-    deployment_info = Deployment.apply(
-        deployment_config_params=config_params,
-        context=shared_options.cloud_context,
-    )
+    deployment_info = Deployment.apply(deployment_config_params=config_params)
 
-    click.echo(f"Deployment '{deployment_info.name}' applied successfully.")
+    rich.print(f"Deployment [green]'{deployment_info.name}'[/] applied successfully.")
 
 
 @deployment_command.command()
@@ -476,6 +468,12 @@ def apply(  # type: ignore
     multiple=True,
 )
 @click.option(
+    "--secret",
+    type=click.STRING,
+    help="List of secret names pass by --secret name1, --secret name2, ...",
+    multiple=True,
+)
+@click.option(
     "-f",
     "--config-file",
     type=click.File(),
@@ -498,12 +496,10 @@ def apply(  # type: ignore
 @click.option(
     "--timeout",
     type=click.INT,
-    default=1800,
+    default=3600,
     help="Timeout for deployment to be ready in seconds",
 )
-@click.pass_obj
 def create(
-    shared_options: SharedOptions,
     bento: str | None,
     name: str | None,
     cluster: str | None,
@@ -513,6 +509,7 @@ def create(
     instance_type: str | None,
     strategy: str | None,
     env: tuple[str] | None,
+    secret: tuple[str] | None,
     config_file: str | t.TextIO | None,
     config_dict: str | None,
     wait: bool,
@@ -524,7 +521,6 @@ def create(
     Create a deployment using parameters, or using config yaml file.
     """
     create_deployment(
-        context=shared_options.cloud_context,
         bento=bento,
         name=name,
         cluster=cluster,
@@ -534,6 +530,7 @@ def create(
         instance_type=instance_type,
         strategy=strategy,
         env=env,
+        secret=secret,
         config_file=config_file,
         config_dict=config_dict,
         wait=wait,
@@ -549,15 +546,13 @@ def create(
     required=True,
 )
 @output_option
-@click.pass_obj
 def get(  # type: ignore
-    shared_options: SharedOptions,
     name: str,
     cluster: str | None,
     output: t.Literal["json", "default"],
 ) -> None:
     """Get a deployment on BentoCloud."""
-    d = Deployment.get(name, context=shared_options.cloud_context, cluster=cluster)
+    d = Deployment.get(name, cluster=cluster)
     if output == "json":
         info = json.dumps(d.to_dict(), indent=2, default=str)
         console.print_json(info)
@@ -573,15 +568,12 @@ def get(  # type: ignore
     type=click.STRING,
     required=True,
 )
-@click.pass_obj
 def terminate(  # type: ignore
-    shared_options: SharedOptions,
-    name: str,
-    cluster: str | None,
+    name: str, cluster: str | None
 ) -> None:
     """Terminate a deployment on BentoCloud."""
-    Deployment.terminate(name, context=shared_options.cloud_context, cluster=cluster)
-    click.echo(f"Deployment '{name}' terminated successfully.")
+    Deployment.terminate(name, cluster=cluster)
+    rich.print(f"Deployment [green]'{name}'[/] terminated successfully.")
 
 
 @deployment_command.command()
@@ -591,15 +583,12 @@ def terminate(  # type: ignore
     required=True,
 )
 @shared_decorator
-@click.pass_obj
 def delete(  # type: ignore
-    shared_options: SharedOptions,
-    name: str,
-    cluster: str | None,
+    name: str, cluster: str | None
 ) -> None:
     """Delete a deployment on BentoCloud."""
-    Deployment.delete(name, context=shared_options.cloud_context, cluster=cluster)
-    click.echo(f"Deployment '{name}' deleted successfully.")
+    Deployment.delete(name, cluster=cluster)
+    rich.print(f"Deployment [green]'{name}'[/] deleted successfully.")
 
 
 @deployment_command.command(name="list")
@@ -614,17 +603,13 @@ def delete(  # type: ignore
     type=click.Choice(["json", "yaml", "table"]),
     default="table",
 )
-@click.pass_obj
 def list_command(  # type: ignore
-    shared_options: SharedOptions,
     cluster: str | None,
     search: str | None,
     output: t.Literal["json", "yaml", "table"],
 ) -> None:
     """List existing deployments on BentoCloud."""
-    d_list = Deployment.list(
-        context=shared_options.cloud_context, cluster=cluster, search=search
-    )
+    d_list = Deployment.list(cluster=cluster, search=search)
     res: list[dict[str, t.Any]] = [d.to_dict() for d in d_list]
     if output == "table":
         table = Table(box=None, expand=True)
@@ -659,16 +644,12 @@ def list_command(  # type: ignore
     type=click.Choice(["json", "yaml", "table"]),
     default="table",
 )
-@click.pass_obj
 def list_instance_types(  # type: ignore
-    shared_options: SharedOptions,
     cluster: str | None,
     output: t.Literal["json", "yaml", "table"],
 ) -> None:
     """List existing instance types in cluster on BentoCloud."""
-    d_list = Deployment.list_instance_types(
-        context=shared_options.cloud_context, cluster=cluster
-    )
+    d_list = Deployment.list_instance_types(cluster=cluster)
     res: list[dict[str, t.Any]] = [d.to_dict() for d in d_list]
     if output == "table":
         table = Table(box=None, expand=True)
@@ -697,7 +678,6 @@ def list_instance_types(  # type: ignore
 
 
 def create_deployment(
-    context: str | None,
     bento: str | None,
     name: str | None,
     cluster: str | None,
@@ -707,6 +687,7 @@ def create_deployment(
     instance_type: str | None,
     strategy: str | None,
     env: tuple[str] | None,
+    secret: tuple[str] | None,
     config_file: str | t.TextIO | None,
     config_dict: str | None,
     wait: bool,
@@ -717,7 +698,6 @@ def create_deployment(
         cfg_dict = json.loads(config_dict)
     config_params = DeploymentConfigParameters(
         name=name,
-        context=context,
         bento=bento,
         cluster=cluster,
         access_authorization=access_authorization,
@@ -730,6 +710,7 @@ def create_deployment(
             if env is not None
             else None
         ),
+        secrets=secret,
         config_file=config_file,
         config_dict=cfg_dict,
         cli=True,
@@ -740,10 +721,7 @@ def create_deployment(
         raise_deployment_config_error(e, "create")
     with Spinner() as spinner:
         spinner.update("Creating deployment on BentoCloud")
-        deployment = Deployment.create(
-            deployment_config_params=config_params,
-            context=context,
-        )
+        deployment = Deployment.create(deployment_config_params=config_params)
         spinner.log(
             f'✅ Created deployment "{deployment.name}" in cluster "{deployment.cluster}"'
         )

@@ -26,11 +26,6 @@ import click
     "--backlog", type=click.INT, default=2048, help="Backlog size for the socket"
 )
 @click.option(
-    "--prometheus-dir",
-    type=click.Path(exists=True),
-    help="Required by prometheus to pass the metrics in multi-process mode",
-)
-@click.option(
     "--worker-env", type=click.STRING, default=None, help="Environment variables"
 )
 @click.option(
@@ -115,7 +110,6 @@ def main(
     backlog: int,
     worker_env: str | None,
     worker_id: int | None,
-    prometheus_dir: str | None,
     ssl_certfile: str | None,
     ssl_keyfile: str | None,
     ssl_keyfile_password: str | None,
@@ -172,11 +166,6 @@ def main(
 
     BentoMLContainer.development_mode.set(development_mode)
 
-    if prometheus_dir is not None:
-        BentoMLContainer.prometheus_multiproc_dir.set(prometheus_dir)
-    os.environ["PROMETHEUS_MULTIPROC_DIR"] = (
-        BentoMLContainer.prometheus_multiproc_dir.get()
-    )
     server_context.service_name = service.name
     if service.bento is None:
         server_context.bento_name = service.name
@@ -185,9 +174,7 @@ def main(
         server_context.bento_name = service.bento.tag.name
         server_context.bento_version = service.bento.tag.version or "not available"
 
-    asgi_app = service.to_asgi(
-        is_main=server_context.service_type == "entry_service", init=False
-    )
+    asgi_app = service.to_asgi(is_main=server_context.service_type == "entry_service")
 
     uvicorn_extra_options: dict[str, t.Any] = {}
     if ssl_version is not None:

@@ -46,6 +46,7 @@ class DeploymentConfigSchema:
     __forbid_extra_keys__ = False
     access_authorization: bool = attr.field(default=False)
     envs: t.Optional[t.List[EnvItemSchema]] = attr.field(default=None)
+    secrets: t.Optional[t.List[str]] = attr.field(default=None)
     services: t.Dict[str, DeploymentServiceConfig] = attr.field(factory=dict)
 
 
@@ -59,14 +60,14 @@ class UpdateDeploymentSchema(DeploymentConfigSchema):
 @attr.define(kw_only=True)
 class CreateDeploymentSchema(UpdateDeploymentSchema):
     __omit_if_default__ = True
-    __forbid_extra_keys__ = True
+    __forbid_extra_keys__ = False
     name: t.Optional[str] = attr.field(default=None)
 
 
 @attr.define
 class DeploymentSchema(ResourceSchema):
     __omit_if_default__ = True
-    __forbid_extra_keys__ = True
+    __forbid_extra_keys__ = False
     status: str
     kube_namespace: str
     creator: UserSchema
@@ -82,7 +83,7 @@ class DeploymentFullSchema(DeploymentSchema):
 @attr.define
 class DeploymentListSchema(BaseListSchema):
     __omit_if_default__ = True
-    __forbid_extra_keys__ = True
+    __forbid_extra_keys__ = False
     items: t.List[DeploymentSchema]
 
 
@@ -122,4 +123,4 @@ class KubePodWSResponseSchema:
     __forbid_extra_keys__ = False
     message: str
     type: str
-    payload: t.List[KubePodSchema]
+    payload: t.Optional[t.List[KubePodSchema]]
